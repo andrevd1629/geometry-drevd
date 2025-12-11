@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GEOMETRY DREVD: ACCOUNT UPDATE</title>
+    <title>GEOMETRY DREVD: LOGOUT FIXED</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Roboto:wght@900&family=VT323&display=swap');
 
@@ -68,13 +68,13 @@
         .btn-secret { position: absolute; bottom: 15px; right: 15px; background: transparent; border: 1px solid #444; color: #555; font-size: 24px; padding: 5px 12px; z-index: 100; }
         .btn-secret:hover { color: red; border-color: red; }
         
-        .btn-login { 
+        #btn-auth { 
             position: absolute; top: 15px; left: 15px; 
             background: transparent; border: 1px solid #00e5ff; color: #00e5ff; 
             font-size: 14px; padding: 8px 15px; z-index: 100; 
             box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
         }
-        .btn-login:hover { background: rgba(0, 229, 255, 0.1); }
+        #btn-auth:hover { background: rgba(0, 229, 255, 0.1); }
 
         /* Level Grid */
         .level-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 85%; max-width: 600px; max-height: 200px; overflow-y: auto; margin-bottom: 10px; padding-right: 5px; }
@@ -83,7 +83,6 @@
         .lvl-header { display: flex; justify-content: space-between; font-weight: bold; }
         .lvl-sub { font-size: 12px; color: #888; margin-top: 5px; display: flex; justify-content: space-between; }
 
-        /* Diff Colors */
         .diff-Easy { color: #2ecc71; }
         .diff-Normal { color: #f1c40f; }
         .diff-Hard { color: #e67e22; }
@@ -150,8 +149,8 @@
             <button class="btn-menu" onclick="openSettings()">⚙ НАСТРОЙКИ</button>
         </div>
         
-        <!-- КНОПКА ВХОДА -->
-        <button class="btn-login" onclick="openAccountMenu()">👤 LOG IN</button>
+        <!-- КНОПКА ВХОДА/ВЫХОДА -->
+        <button id="btn-auth" onclick="handleAuth()">👤 LOG IN</button>
         
         <!-- СЕКРЕТНАЯ КНОПКА -->
         <button class="btn-secret" onclick="openPasswordMenu()">🔒</button>
@@ -166,8 +165,22 @@
             <div id="accMsg" style="height: 20px; color: red; font-family: 'Orbitron';"></div>
         </div>
         <div style="display: flex;">
-            <button class="btn-play" onclick="loginAccount()">ENTER</button>
+            <button class="btn-menu" onclick="loginAccount()" style="border-color:#0f0; color:#0f0">ENTER</button>
             <button class="btn-menu" onclick="closeAccountMenu()">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- PIN MENU -->
+    <div id="pinMenu" class="overlay hidden">
+        <h1>SECURITY CHECK</h1>
+        <div class="garage-container" style="align-items: center;">
+            <p style="color:#00e5ff; font-family:'Orbitron'">ENTER PIN CODE:</p>
+            <input type="text" id="pinInput" class="pass-input" placeholder="XXXX" maxlength="4">
+            <div id="pinMsg" style="height: 20px; color: red; font-family: 'Orbitron';"></div>
+        </div>
+        <div style="display: flex;">
+            <button class="btn-menu" onclick="checkPin()" style="border-color:#0f0; color:#0f0">VERIFY</button>
+            <button class="btn-menu" onclick="closePinMenu()">CANCEL</button>
         </div>
     </div>
 
@@ -286,9 +299,13 @@
     
     // ACCOUNT REFS
     const accountMenu = document.getElementById('accountMenu');
+    const pinMenu = document.getElementById('pinMenu');
     const accName = document.getElementById('accName');
     const accPass = document.getElementById('accPass');
     const accMsg = document.getElementById('accMsg');
+    const pinInput = document.getElementById('pinInput');
+    const pinMsg = document.getElementById('pinMsg');
+    const btnAuth = document.getElementById('btn-auth');
 
     const starCountEl = document.getElementById('star-count');
     const coinCountEl = document.getElementById('coin-count');
@@ -315,7 +332,8 @@
         stars: 0,
         coins: 0,
         unlockedSkins: [0], 
-        completedLevels: []
+        completedLevels: [],
+        isLoggedIn: false 
     };
 
     // ACHIEVEMENTS
@@ -330,6 +348,7 @@
         if(saved) userSettings = Object.assign(userSettings, JSON.parse(saved));
         updateStatsUI();
         updateControlsUI();
+        updateAuthButton();
     }
     function saveUserData() { localStorage.setItem('drevd_user_v2', JSON.stringify(userSettings)); updateStatsUI(); }
     function updateStatsUI() {
@@ -343,6 +362,14 @@
     }
 
     // --- ACCOUNT SYSTEM ---
+    function handleAuth() {
+        if(userSettings.isLoggedIn) {
+            logoutAccount();
+        } else {
+            openAccountMenu();
+        }
+    }
+
     function openAccountMenu() {
         mainMenu.classList.add('hidden');
         accountMenu.classList.remove('hidden');
@@ -352,16 +379,67 @@
         accountMenu.classList.add('hidden');
         mainMenu.classList.remove('hidden');
     }
+    
     function loginAccount() {
         if(accName.value === 'Andrevd' && accPass.value === 'AndrevdSecret') {
+            // Temp account
             userSettings.stars = 99999999;
             userSettings.coins = 99999999;
+            userSettings.isLoggedIn = true; // Set logged in
             updateStatsUI();
-            alert("WELCOME, CREATOR!");
+            updateAuthButton();
+            alert("WELCOME CREATOR (Session Only)");
             closeAccountMenu();
-            // Note: We intentionally do NOT call saveUserData() here to make it temporary
-        } else {
+        } 
+        else if (accName.value === 'AndrevdAndArtzz' && accPass.value === 'AndrevdAndArtzzTop') {
+            // Secret account logic
+            accountMenu.classList.add('hidden');
+            pinMenu.classList.remove('hidden');
+            pinInput.value = '';
+            pinMsg.innerText = '';
+        }
+        else {
             accMsg.innerText = "INVALID CREDENTIALS";
+        }
+    }
+
+    function checkPin() {
+        if(pinInput.value === '2526') {
+            userSettings.stars = "9999999999999999"; 
+            userSettings.coins = "9999999999999999";
+            userSettings.isLoggedIn = true;
+            userSettings.unlockedSkins = [0,1,2,3]; 
+            saveUserData();
+            updateAuthButton();
+            
+            closePinMenu();
+            alert("GOD ACCOUNT ACTIVATED. PROGRESS SAVED.");
+        } else {
+            pinMsg.innerText = "WRONG PIN";
+        }
+    }
+
+    function closePinMenu() {
+        pinMenu.classList.add('hidden');
+        mainMenu.classList.remove('hidden');
+    }
+
+    function logoutAccount() {
+        if(confirm("LOG OUT and RESET progress?")) {
+            localStorage.removeItem('drevd_user_v2'); // Полное удаление сохранений
+            location.reload(); // Перезагрузка страницы
+        }
+    }
+
+    function updateAuthButton() {
+        if(userSettings.isLoggedIn) {
+            btnAuth.innerText = "👤 LOG OUT";
+            btnAuth.style.borderColor = "red";
+            btnAuth.style.color = "red";
+        } else {
+            btnAuth.innerText = "👤 LOG IN";
+            btnAuth.style.borderColor = "#00e5ff";
+            btnAuth.style.color = "#00e5ff";
         }
     }
 
@@ -470,16 +548,16 @@
         {
             name: "Demon Hell", diff: "Insane", stars: 14, track: "demon",
             data: [
-                {x:5,y:0,t:4}, // FAST START
-                {x:8,y:0,t:1},{x:9,y:0,t:1},{x:10,y:0,t:1}, // Triple Spike
-                {x:12,y:2,t:6}, // COIN 1 (Risky)
-                {x:15,y:0,t:2},{x:15,y:1,t:1}, // Spike on block
-                {x:20,y:0,t:3}, // SHIP
-                {x:25,y:1,t:2},{x:25,y:4,t:2}, // Tight gap
-                {x:30,y:0,t:2},{x:30,y:5,t:2}, {x:32,y:3,t:6}, // COIN 2 (In ship)
-                {x:38,y:0,t:3}, // CUBE
-                {x:42,y:0,t:1},{x:43,y:0,t:1},{x:44,y:0,t:1}, // Triple Spike
-                {x:50,y:0,t:2},{x:50,y:1,t:2},{x:50,y:2,t:6}, // COIN 3 (High jump)
+                {x:5,y:0,t:4}, 
+                {x:8,y:0,t:1},{x:9,y:0,t:1},{x:10,y:0,t:1}, 
+                {x:12,y:2,t:6}, 
+                {x:15,y:0,t:2},{x:15,y:1,t:1}, 
+                {x:20,y:0,t:3}, 
+                {x:25,y:1,t:2},{x:25,y:4,t:2}, 
+                {x:30,y:0,t:2},{x:30,y:5,t:2}, {x:32,y:3,t:6}, 
+                {x:38,y:0,t:3}, 
+                {x:42,y:0,t:1},{x:43,y:0,t:1},{x:44,y:0,t:1}, 
+                {x:50,y:0,t:2},{x:50,y:1,t:2},{x:50,y:2,t:6}, 
                 {x:55,y:0,t:1},{x:56,y:0,t:1}
             ]
         }
@@ -575,7 +653,7 @@
         player.endX = (maxX * BLOCK_SIZE) + 600;
         currentLevelData.forEach(o => o.collected = false); sessionCoins = 0;
 
-        mainMenu.classList.add('hidden'); endMenu.classList.add('hidden'); editorHUD.classList.add('hidden'); slotsMenu.classList.add('hidden'); cheatMenu.classList.add('hidden'); passwordMenu.classList.add('hidden'); achieveMenu.classList.add('hidden'); accountMenu.classList.add('hidden');
+        mainMenu.classList.add('hidden'); endMenu.classList.add('hidden'); editorHUD.classList.add('hidden'); slotsMenu.classList.add('hidden'); cheatMenu.classList.add('hidden'); passwordMenu.classList.add('hidden'); achieveMenu.classList.add('hidden'); accountMenu.classList.add('hidden'); pinMenu.classList.add('hidden');
         if(userSettings.controls === 'MOBILE') mobPlayOverlay.classList.remove('hidden'); else mobPlayOverlay.classList.add('hidden');
 
         player.color = userSettings.color; player.skinId = userSettings.skin;
@@ -611,20 +689,27 @@
 
     function update() {
         if (player.mode === 'CUBE') {
-            player.dy += GRAVITY;
-            if(isHolding && player.onGround) { player.dy = JUMP_FORCE; player.onGround = false; sfx('jump'); }
+            player.dy += GRAVITY * (cheats.gravity ? -1 : 1);
+            if(isHolding && player.onGround) { player.dy = JUMP_FORCE * (cheats.gravity ? -1 : 1); player.onGround = false; sfx('jump'); }
             if(!player.onGround) player.angle += 0.15; else player.angle = Math.round(player.angle/(Math.PI/2))*(Math.PI/2);
         } else {
-            player.dy += (isHolding ? SHIP_LIFT : SHIP_GRAVITY);
-            if(player.dy > 8) player.dy = 8; if(player.dy < -8) player.dy = -8;
+            let lift = isHolding ? SHIP_LIFT : SHIP_GRAVITY;
+            if(cheats.gravity) lift = isHolding ? -SHIP_LIFT : -SHIP_GRAVITY;
+            player.dy += lift;
             player.angle = player.dy * 0.1;
         }
+        
         player.y += player.dy; player.x += (cheats.speed ? 12.0 : currentSpeed); cameraX = player.x - 200;
 
         if(Math.random()>0.5) particles.push(new Particle(player.x, player.y+15, player.color, 'trail'));
         const groundY = canvas.height - 50;
-        if(player.y + player.height > groundY) { player.y = groundY - player.height; player.dy = 0; player.onGround = true; } else player.onGround = false;
-        if(player.mode==='SHIP' && player.y < 0) { player.y = 0; player.dy = 0; }
+        
+        if(!cheats.gravity) {
+            if(player.y + player.height > groundY) { player.y = groundY - player.height; player.dy = 0; player.onGround = true; } else player.onGround = false;
+        } else {
+            if(player.y < 0) { player.y = 0; player.dy = 0; player.onGround = true; } else player.onGround = false;
+        }
+
         if(player.x > player.endX) { winLevel(); return; }
         checkCollisions(groundY);
     }
@@ -639,14 +724,17 @@
             if(obj.t === 1) { if(rectIntersect(pRect.l, pRect.r, pRect.t, pRect.b, ox+10, ox+30, oy+10, oy+40)) crash(); }
             else if (obj.t === 2) {
                 if(rectIntersect(player.x+2, player.x+28, player.y+2, player.y+28, ox, ox+40, oy, oy+40)) {
-                    if(player.mode === 'CUBE' && player.dy > 0 && pRect.b <= oy+20) { player.y = oy - player.height; player.dy = 0; player.onGround = true; player.angle = Math.round(player.angle/(Math.PI/2))*(Math.PI/2); }
-                    else if (player.mode === 'SHIP' && player.dy > 0 && pRect.b <= oy+20) { player.y = oy - player.height; player.dy = 0; }
-                    else if (player.mode === 'SHIP' && player.dy < 0 && pRect.t >= oy+20) { player.y = oy + 40; player.dy = 0; }
-                    else crash();
+                    if(!cheats.gravity) {
+                        if(player.dy > 0 && pRect.b <= oy+20) { player.y = oy - player.height; player.dy = 0; player.onGround = true; player.angle = Math.round(player.angle/(Math.PI/2))*(Math.PI/2); }
+                        else if (player.mode === 'SHIP' && player.dy < 0 && pRect.t >= oy+20) { player.y = oy + 40; player.dy = 0; }
+                        else if (player.mode === 'SHIP' && player.dy > 0 && pRect.b <= oy+20) { player.y = oy - player.height; player.dy = 0; }
+                        else crash();
+                    } else { crash(); }
                 }
-            } else if (obj.t === 3 && rectIntersect(player.x, player.x+30, player.y, player.y+30, ox, ox+40, oy, oy+40)) player.mode = player.mode === 'CUBE' ? 'SHIP' : 'CUBE';
-              else if (obj.t === 4 && rectIntersect(player.x, player.x+30, player.y, player.y+30, ox, ox+40, oy, oy+40)) currentSpeed = 8.5;
-              else if (obj.t === 5 && rectIntersect(player.x, player.x+30, player.y, player.y+30, ox, ox+40, oy, oy+40)) currentSpeed = 6.0;
+            } 
+            else if (obj.t === 3 && rectIntersect(player.x, player.x+30, player.y, player.y+30, ox, ox+40, oy, oy+40)) player.mode = player.mode === 'CUBE' ? 'SHIP' : 'CUBE';
+            else if (obj.t === 4 && rectIntersect(player.x, player.x+30, player.y, player.y+30, ox, ox+40, oy, oy+40)) currentSpeed = 8.5;
+            else if (obj.t === 5 && rectIntersect(player.x, player.x+30, player.y, player.y+30, ox, ox+40, oy, oy+40)) currentSpeed = 6.0;
         }
     }
     function rectIntersect(l1, r1, t1, b1, l2, r2, t2, b2) { return !(l2 > r1 || r2 < l1 || t2 > b1 || b2 < t1); }
@@ -655,9 +743,9 @@
         gameState = 'GAMEOVER'; bgMusic.pause(); 
         if(currentLevelIndex !== -1 && !userSettings.completedLevels.includes(currentLevelIndex)) {
             userSettings.completedLevels.push(currentLevelIndex);
-            userSettings.stars += LEVELS[currentLevelIndex].stars;
+            userSettings.stars = Number(userSettings.stars) + LEVELS[currentLevelIndex].stars;
         }
-        userSettings.coins += sessionCoins;
+        userSettings.coins = Number(userSettings.coins) + sessionCoins;
         saveUserData(); checkAchievements();
         deathMsg.innerText = `COMPLETE!\n+${sessionCoins} Coins`; deathMsg.style.color = "#0f0"; endMenu.classList.remove('hidden'); 
     }
