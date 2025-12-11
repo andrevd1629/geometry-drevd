@@ -128,10 +128,8 @@
 <audio id="bgMusic" loop></audio>
 
 <div id="game-wrapper">
-    <!-- IMPORTANT: Fixed resolution for logic, scaled by CSS -->
     <canvas id="gameCanvas" width="800" height="450"></canvas>
     
-    <!-- MAIN MENU -->
     <div id="mainMenu" class="overlay">
         <h1>GEOMETRY DREVD 2.1</h1>
         
@@ -153,7 +151,6 @@
         <button class="btn-secret" onclick="openPasswordMenu()">🔒</button>
     </div>
 
-    <!-- MENUS (Hidden by default) -->
     <div id="accountMenu" class="overlay hidden">
         <h1>LOGIN</h1>
         <div class="garage-container">
@@ -234,7 +231,6 @@
         <button class="btn-menu" onclick="closeGarage()">OK</button>
     </div>
 
-    <!-- HUDs -->
     <div id="editorHUD" class="hidden">
         <div id="editor-ui">
             <button onclick="setTool(1)">▲</button>
@@ -417,8 +413,9 @@
     function closeAchievements() { achieveMenu.classList.add('hidden'); mainMenu.classList.remove('hidden'); }
 
     // --- LEVELS ---
+    // !!! ВАЖНО: Замените 'gspd.mp3' на локальный файл или надежную ссылку.
     const MUSIC_TRACKS = {
-        techno: "gspd.mp3",
+        techno: "gspd.mp3", 
         fast: "https://commondatastorage.googleapis.com/codeskulptor-demos/riceracer_assets/music/race1.ogg",
         epic: "https://commondatastorage.googleapis.com/codeskulptor-assets/week7-brrring.m4a",
         demon: "https://commondatastorage.googleapis.com/codeskulptor-demos/pyman_assets/eaten.ogg"
@@ -434,11 +431,12 @@
     const BLOCK_SIZE = 40; const GRAVITY = 0.65; const JUMP_FORCE = -10.8; const SHIP_GRAVITY = 0.35; const SHIP_LIFT = -0.45;
     let animationId = null, gameState = 'MENU', currentLevelData = [], currentLevelIndex = -1, currentSlotId = 0, cameraX = 0, currentSpeed = 6.0, particles = [], isHolding = false, editorScrollX = 0, selectedTool = 1, sessionCoins = 0;
     let player = { x: 0, y: 0, dy: 0, angle: 0, width: 30, height: 30, mode: 'CUBE', onGround: false, isDead: false, color: '#00e676', skinId: 0, endX: 0 };
+    let lastTime = 0; // For delta time calculation
 
     // Optimized Audio
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function sfx(type) {
-        if(audioCtx.state === 'suspended') audioCtx.resume();
+        if(audioCtx.state === 'suspended') audioCtx.resume().catch(e => console.error("AudioContext resume error:", e));
         const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
         osc.connect(gain); gain.connect(audioCtx.destination);
         const now = audioCtx.currentTime;
@@ -448,356 +446,382 @@
         osc.start(now); osc.stop(now+(type==='crash'?0.3:0.1));
     }
 
-    function init() { loadUserData(); initMenu(); ctx.fillStyle='#000'; ctx.fillRect(0,0,800,450); }
-
-    function initMenu() {
-        levelList.innerHTML = '';
-        LEVELS.forEach((lvl, index) => {
-            let btn = document.createElement('div'); btn.className = 'level-card';
-            let starsEarned = userSettings.completedLevels.includes(index) ? `⭐${lvl.stars}` : '';
-            btn.innerHTML = `<div class="lvl-header"><span>${lvl.name}</span><span class="diff-${lvl.diff}">${lvl.diff}</span></div><div class="lvl-sub"><span>${starsEarned}</span><span>Stars: ${lvl.stars}</span></div>`;
-            btn.onclick = () => startLevel(index);
-            levelList.appendChild(btn);
-        });
-        let custom = document.createElement('div'); custom.className = 'level-card';
-        custom.innerHTML = `<div class="lvl-header"><span style="color:#0ff">My Levels</span><span>USER</span></div>`;
-        custom.onclick = () => openSlotsMenu(true); levelList.appendChild(custom);
-        initGarage();
-    }
-
-    function initGarage() {
-        const cc = document.getElementById('color-selector'); const sc = document.getElementById('skin-selector');
-        cc.innerHTML = ''; sc.innerHTML = '';
-        COLORS.forEach(c => {
-            let b = document.createElement('div'); b.className = 'color-btn'; b.style.background = c;
-            if(c === userSettings.color) b.classList.add('active');
-            b.onclick = () => { userSettings.color = c; saveUserData(); initGarage(); };
-            cc.appendChild(b);
-        });
-        SKINS.forEach(s => {
-            let b = document.createElement('div'); let unlocked = userSettings.unlockedSkins.includes(s.id);
-            b.className = `skin-btn ${unlocked?'':'locked'}`;
-            if(s.id === userSettings.skin) b.classList.add('active');
-            let cvs = document.createElement('canvas'); cvs.width=40; cvs.height=40;
-            if(unlocked) drawAvatar(cvs.getContext('2d'), 20, 20, 30, s.id, userSettings.color, 0, 'CUBE');
-            b.appendChild(cvs);
-            b.onclick = () => { if(unlocked) { userSettings.skin = s.id; saveUserData(); initGarage(); } else alert(`LOCKED! ${s.unlock}`); };
-            sc.appendChild(b);
-        });
-    }
-
-    function toggleControls() { userSettings.controls = userSettings.controls === 'PC' ? 'MOBILE' : 'PC'; saveUserData(); updateControlsUI(); }
-    function updateControlsUI() {
-        ctrlToggleBtn.innerText = `MODE: ${userSettings.controls}`;
-        document.getElementById('pc-info').style.display = userSettings.controls === 'MOBILE' ? 'none' : 'block';
-    }
-    function openSettings() { openMenu('settingsMenu'); updateControlsUI(); }
-    function closeSettings() { settingsMenu.classList.add('hidden'); mainMenu.classList.remove('hidden'); }
-    function openGarage() { openMenu('garageMenu'); }
-    function closeGarage() { garageMenu.classList.add('hidden'); mainMenu.classList.remove('hidden'); }
-
-    // Slots & Editor
-    function openSlotsMenu(play) { openMenu('slotsMenu'); const c=document.getElementById('slots-container'); c.innerHTML=''; 
-        for(let i=0;i<3;i++){
-            let key=`drevd_custom_${i}`, d=localStorage.getItem(key), ex=d&&JSON.parse(d).length>0;
-            let b=document.createElement('button'); b.className='btn-slot'; b.innerHTML=`<span>SLOT ${i+1}</span>${ex?'<span style="color:#0f0">DATA</span>':'<span style="color:#555">EMPTY</span>'}`;
-            b.onclick=()=>{ currentSlotId=i; if(play&&!ex){if(confirm("Empty. Create?")) openEditor(i);} else if(play) startLevel('custom'); else openEditor(i); };
-            c.appendChild(b);
+    // Input Handlers
+    function handleInput(down) {
+        if(gameState === 'PLAY') isHolding = down;
+        else if(gameState === 'EDITOR' && userSettings.controls === 'PC') {
+            // Editor input logic is handled in the mouse/keyboard listeners
         }
     }
-    function closeSlotsMenu() { slotsMenu.classList.add('hidden'); mainMenu.classList.remove('hidden'); }
-
-    function startLevel(idx) {
-        if(animationId) cancelAnimationFrame(animationId);
-        let trackKey = "track1";
-        if (idx === 'custom') {
-            const saved = localStorage.getItem(`drevd_custom_${currentSlotId}`);
-            currentLevelData = saved ? JSON.parse(saved) : [];
-        } else {
-            currentLevelData = JSON.parse(JSON.stringify(LEVELS[idx].data));
-            trackKey = LEVELS[idx].track;
-        }
-        currentLevelIndex = idx;
-        
-        // Find end
-        let maxX = 0; currentLevelData.forEach(o => { if(o.x > maxX) maxX = o.x; });
-        player.endX = (maxX * BLOCK_SIZE) + 600;
-        
-        currentLevelData.forEach(o => o.collected = false); sessionCoins = 0;
-
+    document.addEventListener('keydown', e => {
+        if(gameState === 'PLAY' && (e.code === 'Space' || e.code === 'ArrowUp')) isHolding = true;
+    });
+    document.addEventListener('keyup', e => {
+        if(gameState === 'PLAY' && (e.code === 'Space' || e.code === 'ArrowUp')) isHolding = false;
+    });
+    document.addEventListener('mousedown', e => handleInput(true));
+    document.addEventListener('mouseup', e => handleInput(false));
+    
+    // Editor functions
+    function openEditor(slotId) {
+        currentSlotId = slotId;
+        const saved = localStorage.getItem(`drevd_custom_${currentSlotId}`);
+        currentLevelData = saved ? JSON.parse(saved) : [];
+        editorScrollX = 0;
         document.querySelectorAll('.overlay').forEach(el=>el.classList.add('hidden'));
-        document.getElementById('editorHUD').classList.add('hidden');
-        
-        const mobPlay = document.getElementById('mobile-play-overlay');
-        if(userSettings.controls === 'MOBILE') mobPlay.classList.remove('hidden'); else mobPlay.classList.add('hidden');
-
-        player.color = userSettings.color; player.skinId = userSettings.skin;
-        resetPlayer(); particles = []; gameState = 'PLAY';
-        
-        bgMusic.src = MUSIC_TRACKS[trackKey] || MUSIC_TRACKS.techno;
-        bgMusic.volume = 0.4; bgMusic.currentTime = 0; bgMusic.play().catch(e=>{});
-        
+        editorHUD.classList.remove('hidden');
+        document.getElementById('mobile-play-overlay').classList.add('hidden'); // Ensure play overlay is hidden
+        document.getElementById('mob-editor-controls').classList.toggle('hidden', userSettings.controls === 'PC');
+        gameState = 'EDITOR';
+        if(animationId) cancelAnimationFrame(animationId);
         loop();
     }
-
-    function resetPlayer() {
-        player.x=100; player.y=GAME_HEIGHT-50-30; player.dy=0; player.angle=0; player.mode='CUBE'; player.isDead=false; player.onGround=true; cameraX=0; isHolding=false; currentSpeed=cheats.speed?10:6;
+    function saveCustomLevel() {
+        localStorage.setItem(`drevd_custom_${currentSlotId}`, JSON.stringify(currentLevelData));
+        alert(`Slot ${currentSlotId + 1} saved!`);
     }
+    function setTool(tool) { selectedTool = tool; alert(`Tool ${tool} selected`); }
+    function moveCam(dir) { editorScrollX += dir * BLOCK_SIZE; }
 
-    function restartLevel() { startLevel(currentLevelIndex); }
-    function exitToMenu() {
-        if(animationId) cancelAnimationFrame(animationId);
-        gameState = 'MENU';
-        document.querySelectorAll('.overlay').forEach(el=>el.classList.add('hidden'));
-        document.getElementById('mobile-play-overlay').classList.add('hidden');
-        document.getElementById('editorHUD').classList.add('hidden');
-        mainMenu.classList.remove('hidden');
-        bgMusic.pause();
-        ctx.fillStyle='#000'; ctx.fillRect(0,0,GAME_WIDTH,GAME_HEIGHT);
-        initMenu();
-    }
+    // Editor Mouse Logic
+    canvas.addEventListener('click', e => {
+        if(gameState !== 'EDITOR' || userSettings.controls !== 'PC') return;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const canvasX = (e.clientX - rect.left) * scaleX;
+        const canvasY = (e.clientY - rect.top) * scaleY;
+        const gridX = Math.floor((canvasX + editorScrollX) / BLOCK_SIZE);
+        const gridY = Math.floor((GAME_HEIGHT - canvasY) / BLOCK_SIZE);
 
-    function loop() {
-        if(gameState === 'PLAY') { update(); draw(); animationId = requestAnimationFrame(loop); }
-        else if (gameState === 'EXPLODING') { drawExplosion(); animationId = requestAnimationFrame(loop); }
-        else if (gameState === 'EDITOR') { drawEditor(); animationId = requestAnimationFrame(loop); }
-    }
-
-    function update() {
-        // Physics
-        if (player.mode === 'CUBE') {
-            player.dy += GRAVITY * (cheats.gravity?-1:1);
-            if(isHolding && player.onGround) { player.dy = JUMP_FORCE*(cheats.gravity?-1:1); player.onGround = false; sfx('jump'); }
-            if(!player.onGround) player.angle += 0.15; else player.angle = Math.round(player.angle/(Math.PI/2))*(Math.PI/2);
-        } else {
-            let lift = isHolding ? SHIP_LIFT : SHIP_GRAVITY;
-            if(cheats.gravity) lift = isHolding ? -SHIP_LIFT : -SHIP_GRAVITY;
-            player.dy += lift;
-            if(player.dy > 8) player.dy = 8; if(player.dy < -8) player.dy = -8;
-            player.angle = player.dy * 0.1;
+        if(e.button === 0) { // Left Click (Add)
+            currentLevelData.push({ x: gridX, y: gridY, t: selectedTool });
+        } else if (e.button === 2) { // Right Click (Remove)
+            let indexToRemove = -1;
+            for(let i = 0; i < currentLevelData.length; i++) {
+                const o = currentLevelData[i];
+                if(o.x === gridX && o.y === gridY && o.t === selectedTool) {
+                    indexToRemove = i;
+                    break;
+                }
+            }
+            if(indexToRemove !== -1) currentLevelData.splice(indexToRemove, 1);
         }
-        
-        player.y += player.dy;
-        player.x += (cheats.speed ? 12 : currentSpeed);
-        cameraX = player.x - 200;
-
-        // Particles
-        if(particles.length < 50 && Math.random()>0.5) particles.push(new Particle(player.x, player.y+15, player.color, 'trail'));
-        if(particles.length > 50) particles.shift();
-
-        // Floor / Ceiling check
-        const groundY = GAME_HEIGHT - 50;
-        if(!cheats.gravity) {
-            if(player.y + player.height > groundY) { player.y = groundY - player.height; player.dy = 0; player.onGround = true; } else player.onGround = false;
-        } else {
-            if(player.y < 0) { player.y = 0; player.dy = 0; player.onGround = true; } else player.onGround = false;
+        drawEditor();
+    });
+    canvas.addEventListener('contextmenu', e => {
+        if(gameState === 'EDITOR' && userSettings.controls === 'PC') {
+            e.preventDefault(); // Prevent context menu on right click
+            // The removal logic is in the 'click' event listener for button 2
         }
+    });
 
-        if(player.x > player.endX) { winLevel(); return; }
-        checkCollisions(groundY);
-    }
+    // Drawing functions
+    function drawAvatar(ctx, x, y, size, skinId, color, angle, mode) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        
+        ctx.fillStyle = cheats.rainbow ? `hsl(${Math.floor(Date.now()/50)%360}, 100%, 50%)` : color;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
 
-    function checkCollisions(groundY) {
-        let pRect = {l: player.x+8, r: player.x+player.width-8, t: player.y+8, b: player.y+player.height-8};
-        
-        // Optim: Only check nearby objects
-        let startIdx = Math.max(0, Math.floor((player.x - 100) / BLOCK_SIZE) - 5);
-        
-        for(let i=0; i<currentLevelData.length; i++) {
-            let obj = currentLevelData[i];
-            let ox = obj.x * BLOCK_SIZE; 
+        if (mode === 'CUBE') {
+            ctx.fillRect(-size/2, -size/2, size, size);
+            ctx.strokeRect(-size/2, -size/2, size, size);
             
-            // Render distance check for collision
-            if(ox < cameraX - 100) continue;
-            if(ox > cameraX + GAME_WIDTH + 100) break; // Sorted by X usually, optimization
-
-            let oy = groundY - (obj.y * BLOCK_SIZE) - BLOCK_SIZE;
-
-            // Coin
-            if(obj.t === 6 && !obj.collected) {
-                if(rectIntersect(player.x, player.x+30, player.y, player.y+30, ox, ox+40, oy, oy+40)) {
-                    obj.collected = true; sessionCoins++; sfx('coin');
-                }
-                continue;
+            // Draw skin details
+            if (skinId === 1) { // Creeper
+                ctx.fillStyle = '#000';
+                ctx.fillRect(-size/4, -size/4, size/2, size/2);
+            } else if (skinId === 3) { // Smile
+                ctx.beginPath();
+                ctx.arc(0, 0, size/2 * 0.8, 0, Math.PI * 2);
+                ctx.fillStyle = '#ff0'; ctx.fill(); ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(-size/6, -size/8, size/10, 0, Math.PI * 2); ctx.arc(size/6, -size/8, size/10, 0, Math.PI * 2);
+                ctx.fillStyle = '#000'; ctx.fill();
+                ctx.beginPath(); ctx.arc(0, size/8, size/4, 0, Math.PI, false); ctx.stroke();
             }
-
-            if(cheats.god) continue;
-
-            // Spike
-            if(obj.t === 1) { 
-                if(rectIntersect(pRect.l, pRect.r, pRect.t, pRect.b, ox+10, ox+30, oy+10, oy+40)) crash();
-            }
-            // Block
-            else if (obj.t === 2) {
-                if(rectIntersect(player.x+2, player.x+28, player.y+2, player.y+28, ox, ox+40, oy, oy+40)) {
-                    if(!cheats.gravity) {
-                        if(player.dy > 0 && pRect.b <= oy+20) { player.y = oy - player.height; player.dy = 0; player.onGround = true; player.angle = Math.round(player.angle/(Math.PI/2))*(Math.PI/2); }
-                        else if (player.mode === 'SHIP' && player.dy < 0 && pRect.t >= oy+20) { player.y = oy + 40; player.dy = 0; }
-                        else if (player.mode === 'SHIP' && player.dy > 0 && pRect.b <= oy+20) { player.y = oy - player.height; player.dy = 0; }
-                        else crash();
-                    } else { crash(); } // Simplified gravity flip crash on blocks
-                }
-            }
-            // Portal / Speed
-            else if (obj.t === 3 && rectIntersect(player.x, player.x+30, player.y, player.y+30, ox, ox+40, oy, oy+40)) player.mode = player.mode === 'CUBE' ? 'SHIP' : 'CUBE';
-            else if (obj.t === 4 && rectIntersect(player.x, player.x+30, player.y, player.y+30, ox, ox+40, oy, oy+40)) currentSpeed = 8.5;
-            else if (obj.t === 5 && rectIntersect(player.x, player.x+30, player.y, player.y+30, ox, ox+40, oy, oy+40)) currentSpeed = 6.0;
         }
+        
+        // Add a glow/outline
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = color;
+        ctx.strokeRect(-size/2, -size/2, size, size);
+        ctx.shadowBlur = 0;
+
+        ctx.restore();
     }
-
-    function rectIntersect(l1, r1, t1, b1, l2, r2, t2, b2) { return !(l2 > r1 || r2 < l1 || t2 > b1 || b2 < t1); }
-
-    function crash() {
-        if(player.isDead) return;
-        player.isDead = true; gameState = 'EXPLODING'; sfx('crash'); bgMusic.pause();
-        for(let i=0; i<30; i++) particles.push(new Particle(player.x+15, player.y+15, player.color, 'explode'));
-        setTimeout(() => { openMenu('endMenu'); }, 1000);
-    }
-
-    function winLevel() {
-        gameState = 'GAMEOVER'; bgMusic.pause();
-        if(currentLevelIndex !== -1 && !userSettings.completedLevels.includes(currentLevelIndex)) {
-            userSettings.completedLevels.push(currentLevelIndex);
-            userSettings.stars = Number(userSettings.stars) + LEVELS[currentLevelIndex].stars;
+    
+    function drawObject(obj, camX, isEditor=false) {
+        const x = obj.x * BLOCK_SIZE - camX;
+        const y = GAME_HEIGHT - (obj.y * BLOCK_SIZE) - BLOCK_SIZE;
+        
+        ctx.save();
+        ctx.translate(x + BLOCK_SIZE/2, y + BLOCK_SIZE/2);
+        
+        // Type drawing logic
+        switch(obj.t) {
+            case 1: // Spike (Triangle)
+                ctx.fillStyle = '#ff0055';
+                ctx.beginPath();
+                ctx.moveTo(-BLOCK_SIZE/2, BLOCK_SIZE/2);
+                ctx.lineTo(0, -BLOCK_SIZE/2);
+                ctx.lineTo(BLOCK_SIZE/2, BLOCK_SIZE/2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke();
+                break;
+            case 2: // Block (Square)
+                ctx.fillStyle = '#0f0';
+                ctx.fillRect(-BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE, BLOCK_SIZE);
+                ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(-BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE, BLOCK_SIZE);
+                break;
+            case 3: // Portal (Mode change)
+                ctx.fillStyle = '#00e5ff'; ctx.fillRect(-BLOCK_SIZE/4, -BLOCK_SIZE, BLOCK_SIZE/2, BLOCK_SIZE*2);
+                ctx.fillStyle = '#333'; ctx.fillRect(-BLOCK_SIZE/2, -BLOCK_SIZE*0.9, BLOCK_SIZE, BLOCK_SIZE*1.8);
+                ctx.fillStyle = '#0ff'; ctx.fillRect(-BLOCK_SIZE/2+5, -BLOCK_SIZE*0.8, BLOCK_SIZE-10, BLOCK_SIZE*1.6);
+                break;
+            case 4: // Speed Change
+                ctx.fillStyle = '#ffff00'; ctx.fillRect(-BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE, BLOCK_SIZE);
+                ctx.fillStyle = '#000'; ctx.font = '20px Orbitron'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('⏩', 0, 0);
+                break;
+            case 5: // End Block
+                ctx.fillStyle = '#ffd700'; ctx.fillRect(-BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE, BLOCK_SIZE*10);
+                ctx.fillStyle = '#000'; ctx.font = '30px Orbitron'; ctx.textAlign='center'; ctx.fillText('END', 0, -BLOCK_SIZE/2 + 30);
+                break;
+            case 6: // Coin
+                if(!obj.collected) {
+                    ctx.fillStyle = '#ffd700';
+                    ctx.beginPath(); ctx.arc(0, 0, BLOCK_SIZE/3, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke();
+                    ctx.fillStyle = '#000'; ctx.font = '15px Orbitron'; ctx.fillText('C', 0, 5);
+                }
+                break;
         }
-        userSettings.coins = Number(userSettings.coins) + sessionCoins;
-        saveUserData(); checkAchievements();
-        deathMsg.innerText = `COMPLETE!\n+${sessionCoins} Coins`; deathMsg.style.color = "#0f0";
-        openMenu('endMenu');
+        
+        // Editor highlight
+        if(isEditor && obj.t === selectedTool) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 5; ctx.strokeRect(-BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE, BLOCK_SIZE);
+        }
+        
+        ctx.restore();
     }
 
     function draw() {
-        ctx.clearRect(0,0, GAME_WIDTH, GAME_HEIGHT);
-        // Static BG for performance
-        ctx.fillStyle = player.mode === 'CUBE' ? '#1a1a2e' : '#2c0000';
-        ctx.fillRect(0,0, GAME_WIDTH, GAME_HEIGHT);
-
-        ctx.save(); ctx.translate(-cameraX, 0); drawLevel(GAME_HEIGHT-50);
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
         
-        for(let i=particles.length-1; i>=0; i--) { 
-            particles[i].update(); particles[i].draw(ctx); 
-            if(particles[i].life<=0) particles.splice(i,1); 
-        }
+        // Horizon line (Ground)
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, GAME_HEIGHT - BLOCK_SIZE/2); ctx.lineTo(GAME_WIDTH, GAME_HEIGHT - BLOCK_SIZE/2); ctx.stroke();
         
-        drawAvatar(ctx, player.x+15, player.y+15, 30, player.skinId, player.color, player.angle, player.mode);
-        if(cheats.hitbox) { ctx.strokeStyle='#0f0'; ctx.strokeRect(player.x, player.y, 30, 30); }
-        ctx.restore();
-    }
-
-    function drawExplosion() {
-        ctx.clearRect(0,0, GAME_WIDTH, GAME_HEIGHT); ctx.fillStyle='#300'; ctx.fillRect(0,0,GAME_WIDTH,GAME_HEIGHT);
-        ctx.save(); ctx.translate(-cameraX, 0); drawLevel(GAME_HEIGHT-50);
-        for(let i=particles.length-1; i>=0; i--) { particles[i].update(); particles[i].draw(ctx); if(particles[i].life<=0) particles.splice(i,1); }
-        ctx.restore();
-    }
-
-    function drawLevel(groundY) {
-        ctx.fillStyle = '#000'; ctx.fillRect(cameraX, groundY, GAME_WIDTH, 50);
-        ctx.fillStyle = '#fff'; ctx.fillRect(cameraX, groundY, GAME_WIDTH, 2);
-
-        // Optimization: draw only visible blocks
-        for(let obj of currentLevelData) {
-            let ox = obj.x * BLOCK_SIZE;
-            if(ox < cameraX - 100) continue;
-            if(ox > cameraX + GAME_WIDTH + 100) break; // Stop drawing if off screen
-
-            let oy = groundY - (obj.y * BLOCK_SIZE) - BLOCK_SIZE;
-            
-            if(cheats.hitbox) { ctx.strokeStyle = 'red'; ctx.strokeRect(ox, oy, 40, 40); }
-
-            if(obj.t===1) { ctx.fillStyle='#111'; ctx.beginPath(); ctx.moveTo(ox,oy+40); ctx.lineTo(ox+20,oy); ctx.lineTo(ox+40,oy+40); ctx.fill(); ctx.strokeStyle='#f00'; ctx.stroke(); }
-            else if(obj.t===2) { ctx.fillStyle='#000'; ctx.fillRect(ox,oy,40,40); ctx.strokeStyle='#0ff'; ctx.strokeRect(ox,oy,40,40); }
-            else if(obj.t===3) { ctx.strokeStyle='#0f0'; ctx.beginPath(); ctx.arc(ox+20,oy+20,20,0,7); ctx.stroke(); }
-            else if(obj.t===4) { ctx.fillStyle='orange'; ctx.fillText('>>', ox+10,oy+25); }
-            else if(obj.t===5) { ctx.fillStyle='cyan'; ctx.fillText('>', ox+15,oy+25); }
-            else if(obj.t===6 && !obj.collected) { ctx.fillStyle='gold'; ctx.beginPath(); ctx.arc(ox+20,oy+20,15,0,7); ctx.fill(); ctx.strokeStyle='#fff'; ctx.stroke(); }
+        // Draw Blocks
+        currentLevelData.forEach(obj => drawObject(obj, cameraX));
+        
+        // Draw Player
+        drawAvatar(ctx, player.x, player.y + player.height/2, player.width, player.skinId, player.color, player.angle, player.mode);
+        
+        // Draw Hitboxes (Cheat)
+        if(cheats.hitbox) {
+            ctx.strokeStyle = 'rgba(255,0,0,0.8)'; ctx.lineWidth = 1;
+            ctx.strokeRect(player.x - player.width/2, player.y, player.width, player.height);
         }
+
+        // Draw Particles
+        particles.forEach(p => {
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = p.alpha;
+            ctx.beginPath();
+            ctx.arc(p.x - cameraX, p.y, p.size/2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+        });
+        
+        // Draw HUD
+        ctx.fillStyle = '#fff'; ctx.font = '20px Orbitron';
+        const progress = Math.min(100, Math.floor((player.x / player.endX) * 100));
+        ctx.fillText(`Progress: ${progress}%`, 10, 30);
+        ctx.fillStyle = '#ffd700'; ctx.fillText(`Coins: ${sessionCoins}`, 10, 55);
+
+        // Progress Bar
+        ctx.fillStyle = '#333'; ctx.fillRect(100, 10, GAME_WIDTH - 200, 10);
+        ctx.fillStyle = '#0f0'; ctx.fillRect(100, 10, (GAME_WIDTH - 200) * progress / 100, 10);
     }
 
-    function drawAvatar(ctx, x, y, size, skinId, color, angle, mode) {
-        ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
-        let drawColor = color;
-        if(cheats.rainbow) { let hue = (Date.now()/5)%360; drawColor = `hsl(${hue},100%,50%)`; }
-        ctx.shadowBlur = 10; ctx.shadowColor = drawColor; ctx.fillStyle = drawColor;
-        let s = size;
-        if (mode === 'SHIP') {
-            ctx.beginPath(); ctx.moveTo(s/2, 0); ctx.lineTo(-s/3, s/3); ctx.lineTo(-s/3, -s/3); ctx.fill();
-            ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.moveTo(s/6,0); ctx.lineTo(-s/6, s/6); ctx.lineTo(-s/6, -s/6); ctx.fill();
-        } else {
-            ctx.fillRect(-s/2, -s/2, s, s); ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(-s/2, -s/2, s, s);
-            ctx.fillStyle = '#000';
-            if(skinId===1) { ctx.fillRect(-5,-5,10,10); ctx.fillRect(-10,-10,5,5); ctx.fillRect(5,-10,5,5); }
-            else if(skinId===2) ctx.fillRect(-15,-5,30,10);
-            else if(skinId===3) { ctx.beginPath(); ctx.arc(-7,-7,3,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(7,-7,3,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(0,5,7,0,3.14); ctx.stroke(); }
-        }
-        ctx.restore();
-    }
-
-    class Particle {
-        constructor(x,y,c,t) { this.x=x; this.y=y; this.c=c; this.t=t; this.l=1.0; this.vx=(Math.random()-0.5)*(t==='explode'?10:2); this.vy=(Math.random()-0.5)*(t==='explode'?10:2); this.s=Math.random()*(t==='explode'?6:4)+2; }
-        update() { this.x+=this.vx; this.y+=this.vy; this.l-=(this.t==='explode'?0.02:0.05); if(this.t==='trail') this.s*=0.9; }
-        draw(ctx) { ctx.globalAlpha=Math.max(0,this.l); ctx.fillStyle=cheats.rainbow?`hsl(${Math.random()*360},100%,50%)`:this.c; ctx.fillRect(this.x,this.y,this.s,this.s); ctx.globalAlpha=1.0; }
-    }
-
-    // --- CONTROLS ---
-    function handleInput(down) { if(gameState==='PLAY') isHolding=down; }
-    window.addEventListener('keydown', e => { if(e.code==='Space'||e.code==='ArrowUp') handleInput(true); });
-    window.addEventListener('keyup', e => { if(e.code==='Space'||e.code==='ArrowUp') handleInput(false); });
-    canvas.addEventListener('mousedown', e => { if(gameState==='PLAY') handleInput(true); else if(gameState==='EDITOR') handleEditorClick(e); });
-    canvas.addEventListener('mouseup', () => handleInput(false));
-    
-    // --- EDITOR ---
-    function openEditor(slotId) {
-        if(animationId) cancelAnimationFrame(animationId);
-        gameState='EDITOR'; currentSlotId=slotId;
-        const key = `drevd_custom_${slotId}`;
-        currentLevelData = localStorage.getItem(key) ? JSON.parse(localStorage.getItem(key)) : [];
-        editorScrollX=0;
-        openMenu('dummy'); // hide others
-        document.getElementById('editorHUD').classList.remove('hidden');
-        if(userSettings.controls==='MOBILE') document.getElementById('mob-editor-controls').classList.remove('hidden');
-        bgMusic.pause(); loop();
-    }
-    
     function drawEditor() {
-        ctx.clearRect(0,0, GAME_WIDTH, GAME_HEIGHT);
-        let gy = GAME_HEIGHT-50;
-        ctx.fillStyle='#222'; ctx.fillRect(0,0,GAME_WIDTH,GAME_HEIGHT);
-        let off = editorScrollX%BLOCK_SIZE;
-        ctx.strokeStyle='#444'; ctx.beginPath(); for(let i=0;i<21;i++) { ctx.moveTo(i*40-off,0); ctx.lineTo(i*40-off,gy); } ctx.stroke();
-        ctx.fillStyle='#000'; ctx.fillRect(0,gy,GAME_WIDTH,50);
+        ctx.fillStyle = '#111'; ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
         
-        for(let obj of currentLevelData) {
-            let px = obj.x*BLOCK_SIZE-editorScrollX; let py=gy-obj.y*BLOCK_SIZE-BLOCK_SIZE;
-            if(px>-40 && px<GAME_WIDTH) {
-                if(obj.t===1) { ctx.fillStyle='rgba(255,0,0,0.5)'; ctx.beginPath(); ctx.moveTo(px,py+40); ctx.lineTo(px+20,py); ctx.lineTo(px+40,py+40); ctx.fill(); }
-                else if(obj.t===6) { ctx.fillStyle='yellow'; ctx.beginPath(); ctx.arc(px+20,py+20,15,0,7); ctx.fill(); }
-                else ctx.fillStyle='rgba(0,255,255,0.5)'; ctx.fillRect(px,py,40,40);
+        // Draw Grid and Horizon
+        ctx.strokeStyle = '#222'; ctx.lineWidth = 1;
+        for (let i = 0; i < GAME_WIDTH / BLOCK_SIZE + 2; i++) {
+            ctx.beginPath(); ctx.moveTo(i * BLOCK_SIZE - (editorScrollX % BLOCK_SIZE), 0); ctx.lineTo(i * BLOCK_SIZE - (editorScrollX % BLOCK_SIZE), GAME_HEIGHT); ctx.stroke();
+        }
+        for (let i = 0; i < GAME_HEIGHT / BLOCK_SIZE; i++) {
+            ctx.beginPath(); ctx.moveTo(0, GAME_HEIGHT - i * BLOCK_SIZE); ctx.lineTo(GAME_WIDTH, GAME_HEIGHT - i * BLOCK_SIZE); ctx.stroke();
+        }
+        
+        ctx.strokeStyle = '#444'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(0, GAME_HEIGHT - BLOCK_SIZE); ctx.lineTo(GAME_WIDTH, GAME_HEIGHT - BLOCK_SIZE); ctx.stroke(); // Ground line
+        
+        // Draw Objects
+        currentLevelData.forEach(obj => drawObject(obj, editorScrollX, true));
+        
+        // Draw Cursor
+        const gridX = Math.floor((canvas.width/2 + editorScrollX) / BLOCK_SIZE);
+        const gridY = Math.floor((GAME_HEIGHT - canvas.height/2) / BLOCK_SIZE);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.fillRect(GAME_WIDTH/2 - BLOCK_SIZE/2, GAME_HEIGHT/2 - BLOCK_SIZE/2, BLOCK_SIZE, BLOCK_SIZE);
+
+        drawObject({ x: gridX, y: gridY, t: selectedTool }, editorScrollX - GAME_WIDTH/2, false);
+    }
+    
+    // Collision check helper
+    function checkCollision(r1, r2) {
+        return r1.x < r2.x + r2.width &&
+               r1.x + r1.width > r2.x &&
+               r1.y < r2.y + r2.height &&
+               r1.y + r1.height > r2.y;
+    }
+
+    // Main update loop
+    function update(timestamp) {
+        const delta = (timestamp - lastTime) / 1000 * 60 || 1; // Normalize to 60 FPS
+        lastTime = timestamp;
+
+        if (player.isDead) return;
+
+        // Player Movement
+        player.x += currentSpeed * delta;
+        cameraX += currentSpeed * delta;
+
+        // Physics update
+        if (player.mode === 'CUBE') {
+            player.dy += GRAVITY * delta;
+            
+            // Unfinished code continuation from the original post:
+            if(isHolding && player.onGround) { 
+                player.dy = JUMP_FORCE*(cheats.gravity?-1:1); 
+                player.onGround = false; 
+                sfx('jump'); 
             }
+            if(!player.onGround) player.angle += 0.15 * delta; else player.angle = Math.round(player.angle / (Math.PI/2)) * (Math.PI/2);
+            
+            player.y += player.dy * delta;
+            player.onGround = false;
+        }
+
+        // Particle update
+        particles.forEach(p => {
+            p.x += p.dx; p.y += p.dy; p.dy += 0.2; p.alpha -= 0.01; p.size *= 0.98;
+        });
+        particles = particles.filter(p => p.alpha > 0.01 && p.size > 1);
+
+        // Ground collision (temporary floor until block collision is final)
+        const groundY = GAME_HEIGHT - BLOCK_SIZE/2 - player.height;
+        if (player.y >= groundY) {
+            player.y = groundY;
+            player.dy = 0;
+            player.onGround = true;
+            if(player.mode === 'CUBE' && !isHolding) player.angle = Math.round(player.angle / (Math.PI/2)) * (Math.PI/2);
+        }
+
+        // Collision Check with Blocks
+        let hitDanger = false;
+        let onBlock = false;
+        const playerRect = { x: player.x - player.width/2, y: player.y, width: player.width, height: player.height };
+
+        currentLevelData.forEach(obj => {
+            const blockX = obj.x * BLOCK_SIZE;
+            const blockY = GAME_HEIGHT - (obj.y * BLOCK_SIZE) - BLOCK_SIZE;
+            const blockRect = { x: blockX, y: blockY, width: BLOCK_SIZE, height: BLOCK_SIZE };
+            
+            if (checkCollision(playerRect, blockRect)) {
+                switch(obj.t) {
+                    case 1: // Spike
+                    case 2: // Block
+                        if (obj.t === 1 || (obj.t === 2 && player.dy >= 0 && playerRect.y + playerRect.height - player.dy * delta <= blockRect.y)) { // Only block collision on top, or instant death on spike
+                            hitDanger = true;
+                        } else if (obj.t === 2 && player.dy >= 0) { // Land on a block
+                            player.y = blockRect.y - player.height;
+                            player.dy = 0;
+                            player.onGround = true;
+                            onBlock = true;
+                        }
+                        break;
+                    case 4: // Speed Change
+                        currentSpeed = 10;
+                        break;
+                    case 6: // Coin
+                        if(!obj.collected) {
+                            obj.collected = true;
+                            sessionCoins++;
+                            userSettings.coins++;
+                            sfx('coin');
+                        }
+                        break;
+                }
+            }
+        });
+
+        if (hitDanger && !cheats.god) {
+            die('CRASHED');
+            return;
+        }
+
+        // Win Condition
+        if (player.x >= player.endX) {
+            winLevel();
+            return;
         }
     }
 
-    function getMousePos(evt) {
-        var rect = canvas.getBoundingClientRect();
-        return { x: (evt.clientX - rect.left) * (canvas.width / rect.width), y: (evt.clientY - rect.top) * (canvas.height / rect.height) };
+    function die(msg) {
+        if(player.isDead) return;
+        player.isDead = true;
+        sfx('crash');
+        deathMsg.innerText = msg;
+        
+        // Explosion particles
+        for(let i=0; i<30; i++) {
+            particles.push({
+                x: player.x, y: player.y + player.height/2,
+                dx: (Math.random() - 0.5) * 5, dy: (Math.random() - 1) * 5,
+                color: player.color, size: Math.random() * 5 + 5, alpha: 1
+            });
+        }
+        
+        gameState = 'EXPLODING';
+        setTimeout(() => {
+            document.querySelectorAll('.overlay').forEach(el=>el.classList.add('hidden'));
+            document.getElementById('mobile-play-overlay').classList.add('hidden');
+            endMenu.classList.remove('hidden');
+            bgMusic.pause();
+        }, 1000);
+    }
+    
+    function drawExplosion() {
+        draw(); // Draw last frame with particles
+        // Loop is stopped by timeout
     }
 
-    function handleEditorClick(e, isRight) {
-        let m = getMousePos(e);
-        let mx = m.x + editorScrollX;
-        let my = m.y;
-        let gx = Math.floor(mx/40);
-        let gy = Math.floor((GAME_HEIGHT-50-my)/40);
-        if(gy<0||gy>9) return;
-        currentLevelData = currentLevelData.filter(o=>!(o.x===gx&&o.y===gy));
-        if(!isRight) currentLevelData.push({x:gx,y:gy,t:selectedTool});
+    function winLevel() {
+        if (currentLevelIndex !== 'custom') {
+            const lvl = LEVELS[currentLevelIndex];
+            if (!userSettings.completedLevels.includes(currentLevelIndex)) {
+                userSettings.completedLevels.push(currentLevelIndex);
+                userSettings.stars += lvl.stars;
+            }
+            saveUserData();
+            checkAchievements();
+        }
+        
+        die('LEVEL COMPLETE');
+        deathMsg.innerText = "LEVEL COMPLETE";
+        document.getElementById('death-msg').style.color = '#00ff00';
     }
 
-    function setTool(t) { selectedTool=t; }
-    function moveCam(d) { editorScrollX+=d*40; if(editorScrollX<0) editorScrollX=0; }
-    function saveCustomLevel() { localStorage.setItem(`drevd_custom_${currentSlotId}`, JSON.stringify(currentLevelData)); alert("Saved!"); }
-    window.addEventListener('keydown', e => { if(gameState==='EDITOR') { if(e.code==='ArrowRight') editorScrollX+=20; if(e.code==='ArrowLeft') editorScrollX=Math.max(0,editorScrollX-20); if(e.key>='1'&&e.key<='6') selectedTool=parseInt(e.key); } });
-
+    // --- INITIALIZATION ---
     init();
 </script>
 </body>
