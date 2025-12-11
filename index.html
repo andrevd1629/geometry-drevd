@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GEOMETRY DREVD 2.1: DEMON UPDATE</title>
+    <title>GEOMETRY DREVD: ACCOUNT UPDATE</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Roboto:wght@900&family=VT323&display=swap');
 
@@ -25,7 +25,7 @@
             position: relative;
             width: 800px;
             height: 450px;
-            box-shadow: 0 0 60px rgba(255, 0, 0, 0.3);
+            box-shadow: 0 0 60px rgba(0, 100, 255, 0.3);
             border: 2px solid #333;
             background: #000;
         }
@@ -43,7 +43,7 @@
 
         h1 {
             font-family: 'Orbitron', sans-serif; font-size: 50px; margin-bottom: 10px; color: #fff;
-            text-shadow: 0 0 10px #ff0000, 0 0 30px #880000; text-align: center;
+            text-shadow: 0 0 10px #00e5ff, 0 0 30px #0055ff; text-align: center;
         }
 
         /* STATS HEADER */
@@ -63,8 +63,18 @@
         .btn-menu { background: #333; }
         .btn-garage { background: linear-gradient(45deg, #11998e, #38ef7d); border:none; color:#fff; }
         .btn-achieve { background: linear-gradient(45deg, #ff9966, #ff5e62); border:none; color:#fff; }
+        
+        /* Special Buttons */
         .btn-secret { position: absolute; bottom: 15px; right: 15px; background: transparent; border: 1px solid #444; color: #555; font-size: 24px; padding: 5px 12px; z-index: 100; }
         .btn-secret:hover { color: red; border-color: red; }
+        
+        .btn-login { 
+            position: absolute; top: 15px; left: 15px; 
+            background: transparent; border: 1px solid #00e5ff; color: #00e5ff; 
+            font-size: 14px; padding: 8px 15px; z-index: 100; 
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+        }
+        .btn-login:hover { background: rgba(0, 229, 255, 0.1); }
 
         /* Level Grid */
         .level-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 85%; max-width: 600px; max-height: 200px; overflow-y: auto; margin-bottom: 10px; padding-right: 5px; }
@@ -79,23 +89,7 @@
         .diff-Hard { color: #e67e22; }
         .diff-Insane { color: #ff0055; text-shadow: 0 0 5px #ff0055; }
 
-        /* CHEAT MENU */
-        #cheatMenu { background: rgba(0, 20, 0, 0.98); font-family: 'VT323', monospace; color: #0f0; }
-        .cheat-box { border: 1px solid #0f0; padding: 20px; width: 70%; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 0 20px rgba(0, 255, 0, 0.2); }
-        .cheat-row { display: flex; justify-content: space-between; font-size: 20px; border-bottom: 1px solid #004400; padding-bottom: 2px;}
-        .cheat-toggle { cursor: pointer; color: #555; font-weight: bold; }
-        .cheat-toggle.on { color: #0f0; text-shadow: 0 0 5px #0f0; }
-        .cheat-btn { cursor: pointer; color: #0ff; text-decoration: underline; }
-
-        /* ACHIEVEMENTS MENU */
-        #achieveMenu h2 { color: #ffd700; font-family: 'Orbitron'; margin-bottom: 20px; }
-        .achieve-list { width: 80%; max-height: 250px; overflow-y: auto; text-align: left; }
-        .achieve-item { background: #222; margin-bottom: 8px; padding: 10px; border-left: 4px solid #555; display: flex; justify-content: space-between; align-items: center; }
-        .achieve-item.unlocked { border-color: #0f0; background: #1a331a; }
-        .ach-title { font-weight: bold; font-size: 14px; color: #fff; }
-        .ach-desc { font-size: 11px; color: #aaa; }
-
-        /* Garage */
+        /* MENUS */
         .garage-container { display: flex; flex-direction: column; gap: 15px; background: rgba(20,20,20,0.95); padding: 25px; border-radius: 10px; border: 1px solid #444; }
         .selection-row { display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
         .color-btn { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid #444; margin: 2px; }
@@ -105,19 +99,30 @@
         .skin-btn.locked { opacity: 0.5; cursor: not-allowed; }
         .skin-btn.locked::after { content: '🔒'; position: absolute; font-size: 20px; }
 
-        /* Editor UI */
+        /* INPUT FIELDS */
+        .pass-input { 
+            background: #111; border: 1px solid #00e5ff; color: #00e5ff; 
+            font-family: 'Orbitron'; font-size: 20px; text-align: center; 
+            padding: 10px; margin: 5px; width: 250px;
+        }
+        .pass-input::placeholder { color: #005555; }
+
+        /* CHEAT MENU */
+        #cheatMenu { background: rgba(0, 20, 0, 0.98); font-family: 'VT323', monospace; color: #0f0; }
+        .cheat-box { border: 1px solid #0f0; padding: 20px; width: 70%; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 0 20px rgba(0, 255, 0, 0.2); }
+        .cheat-row { display: flex; justify-content: space-between; font-size: 20px; border-bottom: 1px solid #004400; padding-bottom: 2px;}
+        .cheat-toggle { cursor: pointer; color: #555; font-weight: bold; }
+        .cheat-toggle.on { color: #0f0; text-shadow: 0 0 5px #0f0; }
+        .cheat-btn { cursor: pointer; color: #0ff; text-decoration: underline; }
+
+        /* Editor & Mobile */
         #editor-ui { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; }
         #editor-ui button { pointer-events: auto; padding: 5px 10px; margin-right: 5px; background: #fff; color: #000; border: none; }
         .info { pointer-events: auto; background: rgba(0,0,0,0.8); padding: 5px; color: #aaa; border-radius: 4px; font-size: 12px; }
-
-        /* Mobile */
         #mobile-play-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; touch-action: none; }
         #mob-pause { position: absolute; top: 10px; right: 10px; width: 50px; height: 50px; border-radius: 5px; font-size: 12px; pointer-events: auto; background: rgba(255,255,255,0.2); border: 2px solid white; color: white;}
         #mob-editor-controls { position: absolute; bottom: 10px; left: 0; width: 100%; display: flex; justify-content: center; gap: 20px; pointer-events: none; }
         #mob-editor-controls button { pointer-events: auto; width: 60px; height: 60px; font-size: 24px; background: rgba(0,0,0,0.5); color: white; border: 1px solid white; border-radius: 50%; }
-
-        /* Login Input */
-        .pass-input { background: #111; border: 1px solid #0f0; color: #0f0; font-family: 'VT323'; font-size: 30px; text-align: center; padding: 5px; }
 
     </style>
 </head>
@@ -144,20 +149,39 @@
             <button class="btn-menu" onclick="openSlotsMenu(false)">🛠 РЕДАКТОР</button>
             <button class="btn-menu" onclick="openSettings()">⚙ НАСТРОЙКИ</button>
         </div>
+        
+        <!-- КНОПКА ВХОДА -->
+        <button class="btn-login" onclick="openAccountMenu()">👤 LOG IN</button>
+        
+        <!-- СЕКРЕТНАЯ КНОПКА -->
         <button class="btn-secret" onclick="openPasswordMenu()">🔒</button>
+    </div>
+
+    <!-- ACCOUNT MENU (LOG IN) -->
+    <div id="accountMenu" class="overlay hidden">
+        <h1>ACCOUNT LOGIN</h1>
+        <div class="garage-container" style="align-items: center;">
+            <input type="text" id="accName" class="pass-input" placeholder="USERNAME">
+            <input type="password" id="accPass" class="pass-input" placeholder="PASSWORD">
+            <div id="accMsg" style="height: 20px; color: red; font-family: 'Orbitron';"></div>
+        </div>
+        <div style="display: flex;">
+            <button class="btn-play" onclick="loginAccount()">ENTER</button>
+            <button class="btn-menu" onclick="closeAccountMenu()">CANCEL</button>
+        </div>
     </div>
 
     <!-- ACHIEVEMENTS MENU -->
     <div id="achieveMenu" class="overlay hidden">
-        <h2>ДОСТИЖЕНИЯ</h2>
-        <div class="achieve-list" id="ach-list"></div>
+        <h2 style="color:#ffd700; font-family:'Orbitron';">ДОСТИЖЕНИЯ</h2>
+        <div class="level-grid" id="ach-list" style="max-height:300px; display:block;"></div>
         <button class="btn-menu" onclick="closeAchievements()">НАЗАД</button>
     </div>
 
-    <!-- PASSWORD MENU -->
+    <!-- PASSWORD MENU (CHEATS) -->
     <div id="passwordMenu" class="overlay hidden">
         <h1 style="font-family:'VT323'; color:#0f0;">SECURE LOGIN</h1>
-        <input type="text" id="passInput" class="pass-input" placeholder="PASSWORD" maxlength="12">
+        <input type="text" id="passInput" class="pass-input" placeholder="PASSWORD" style="font-family:'VT323'; border-color:#0f0; color:#0f0;">
         <div style="color:red; height:20px; font-family:'VT323'" id="passError"></div>
         <div style="margin-top:10px;">
             <button class="btn-menu" onclick="checkPassword()" style="border-color:#0f0; color:#0f0">LOGIN</button>
@@ -167,7 +191,7 @@
 
     <!-- CHEAT MENU -->
     <div id="cheatMenu" class="overlay hidden">
-        <h1>HACKER PANEL v2.1</h1>
+        <h1>HACKER PANEL</h1>
         <div class="cheat-box">
             <div class="cheat-row"><span>GOD MODE</span><span id="cheat-god" class="cheat-toggle" onclick="toggleCheat('god')">[OFF]</span></div>
             <div class="cheat-row"><span>SPEED HACK</span><span id="cheat-speed" class="cheat-toggle" onclick="toggleCheat('speed')">[OFF]</span></div>
@@ -260,6 +284,12 @@
     const cheatMenu = document.getElementById('cheatMenu');
     const passwordMenu = document.getElementById('passwordMenu');
     
+    // ACCOUNT REFS
+    const accountMenu = document.getElementById('accountMenu');
+    const accName = document.getElementById('accName');
+    const accPass = document.getElementById('accPass');
+    const accMsg = document.getElementById('accMsg');
+
     const starCountEl = document.getElementById('star-count');
     const coinCountEl = document.getElementById('coin-count');
     const mobPlayOverlay = document.getElementById('mobile-play-overlay');
@@ -312,6 +342,29 @@
         pcInfo.style.display = (userSettings.controls === 'MOBILE') ? 'none' : 'block';
     }
 
+    // --- ACCOUNT SYSTEM ---
+    function openAccountMenu() {
+        mainMenu.classList.add('hidden');
+        accountMenu.classList.remove('hidden');
+        accName.value = ''; accPass.value = ''; accMsg.innerText = '';
+    }
+    function closeAccountMenu() {
+        accountMenu.classList.add('hidden');
+        mainMenu.classList.remove('hidden');
+    }
+    function loginAccount() {
+        if(accName.value === 'Andrevd' && accPass.value === 'AndrevdSecret') {
+            userSettings.stars = 99999999;
+            userSettings.coins = 99999999;
+            updateStatsUI();
+            alert("WELCOME, CREATOR!");
+            closeAccountMenu();
+            // Note: We intentionally do NOT call saveUserData() here to make it temporary
+        } else {
+            accMsg.innerText = "INVALID CREDENTIALS";
+        }
+    }
+
     // --- CHEATS ---
     let cheats = { god: false, speed: false, hitbox: false, rainbow: false };
     function openPasswordMenu() { mainMenu.classList.add('hidden'); passwordMenu.classList.remove('hidden'); document.getElementById('passInput').value=''; }
@@ -326,11 +379,7 @@
         el.innerText = cheats[c] ? "[ON]" : "[OFF]";
         el.classList.toggle('on', cheats[c]);
     }
-    function unlockAll() {
-        userSettings.unlockedSkins = [0,1,2,3];
-        saveUserData();
-        alert("ALL SKINS UNLOCKED!");
-    }
+    function unlockAll() { userSettings.unlockedSkins = [0,1,2,3]; saveUserData(); alert("ALL SKINS UNLOCKED!"); }
     function completeAllLevels() {
         LEVELS.forEach((lvl, i) => {
             if(!userSettings.completedLevels.includes(i)) {
@@ -338,9 +387,7 @@
                 userSettings.stars += lvl.stars;
             }
         });
-        saveUserData();
-        initMenu();
-        alert("ALL LEVELS COMPLETED & STARS ADDED!");
+        saveUserData(); initMenu(); alert("ALL LEVELS COMPLETED & STARS ADDED!");
     }
     function closeCheatMenu() { cheatMenu.classList.add('hidden'); mainMenu.classList.remove('hidden'); }
 
@@ -359,14 +406,14 @@
 
     function openAchievements() {
         mainMenu.classList.add('hidden'); achieveMenu.classList.remove('hidden');
-        const list = document.getElementById('ach-list');
-        list.innerHTML = '';
+        const list = document.getElementById('ach-list'); list.innerHTML = '';
         ACHIEVEMENTS.forEach(ach => {
             let unlocked = false;
             if(ach.rewardType === 'skin' && userSettings.unlockedSkins.includes(ach.rewardId)) unlocked = true;
             let item = document.createElement('div');
-            item.className = `achieve-item ${unlocked ? 'unlocked' : ''}`;
-            item.innerHTML = `<div><div class="ach-title">${ach.name} ${unlocked ? '✅' : '🔒'}</div><div class="ach-desc">${ach.desc}</div></div><div style="font-size:10px; color:${unlocked?'#0f0':'#777'}">${ach.reward}</div>`;
+            item.style.padding = "10px"; item.style.border = "1px solid #444"; item.style.marginBottom = "5px"; item.style.background="#222";
+            if(unlocked) { item.style.borderColor = "#0f0"; item.style.background = "#1a331a"; }
+            item.innerHTML = `<div style="font-weight:bold; color:white;">${ach.name} ${unlocked ? '✅' : '🔒'}</div><div style="font-size:12px; color:#aaa;">${ach.desc}</div><div style="font-size:10px; color:${unlocked?'#0f0':'#777'}">${ach.reward}</div>`;
             list.appendChild(item);
         });
     }
@@ -403,7 +450,7 @@
         techno: "gspd.mp3",
         fast: "https://commondatastorage.googleapis.com/codeskulptor-demos/riceracer_assets/music/race1.ogg",
         epic: "https://commondatastorage.googleapis.com/codeskulptor-assets/week7-brrring.m4a",
-        demon: "https://commondatastorage.googleapis.com/codeskulptor-demos/pyman_assets/eaten.ogg" // Scary
+        demon: "https://commondatastorage.googleapis.com/codeskulptor-demos/pyman_assets/eaten.ogg"
     };
 
     // --- LEVELS ---
@@ -528,7 +575,7 @@
         player.endX = (maxX * BLOCK_SIZE) + 600;
         currentLevelData.forEach(o => o.collected = false); sessionCoins = 0;
 
-        mainMenu.classList.add('hidden'); endMenu.classList.add('hidden'); editorHUD.classList.add('hidden'); slotsMenu.classList.add('hidden'); cheatMenu.classList.add('hidden'); passwordMenu.classList.add('hidden'); achieveMenu.classList.add('hidden');
+        mainMenu.classList.add('hidden'); endMenu.classList.add('hidden'); editorHUD.classList.add('hidden'); slotsMenu.classList.add('hidden'); cheatMenu.classList.add('hidden'); passwordMenu.classList.add('hidden'); achieveMenu.classList.add('hidden'); accountMenu.classList.add('hidden');
         if(userSettings.controls === 'MOBILE') mobPlayOverlay.classList.remove('hidden'); else mobPlayOverlay.classList.add('hidden');
 
         player.color = userSettings.color; player.skinId = userSettings.skin;
